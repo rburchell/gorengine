@@ -12,6 +12,9 @@ type Renderer struct {
 	vertexBuffer uint32
 	indexBuffer  uint32
 
+	vertexData []float32
+	indexData  []uint16
+
 	window *glfw.Window
 }
 
@@ -70,8 +73,8 @@ func (this *Renderer) ShouldClose() bool {
 	return this.window.ShouldClose()
 }
 
-func renderPrepass(node Node) uint32 {
-	var count uint32 = 0
+func renderPrepass(node Node) int {
+	var count int = 0
 	if _, ok := node.(RectangleNode); ok {
 		count = 1
 	}
@@ -151,35 +154,42 @@ func (this *Renderer) Render(root Node) {
 	vertexBufferSize := vertexCount * 9
 	indexBufferSize := indexCount
 
-	vertexData := make([]float32, vertexBufferSize)
-	indexData := make([]uint16, indexBufferSize)
+	if vertexBufferSize > len(this.vertexData) {
+		this.vertexData = make([]float32, vertexBufferSize)
+	}
+	if indexBufferSize > len(this.indexData) {
+		this.indexData = make([]uint16, indexBufferSize)
+	}
+
+	this.vertexData = this.vertexData[:]
+	this.indexData = this.indexData[:]
 
 	var indexOffset uint32
 	var vertexOffset uint32
-	renderBuildBuffers(root, vertexData, &vertexOffset, indexData, &indexOffset)
+	renderBuildBuffers(root, this.vertexData, &vertexOffset, this.indexData, &indexOffset)
 
 	// fmt.Println("Render:")
 	// for i:=0; i<int(vertexCount); i++ {
 	//     fmt.Print(" - vertex: ", i, ": ");
 	//     for v:=0; v<9; v++ {
-	//         fmt.Print(vertexData[i * 9 + v], ", ")
+	//         fmt.Print(this.vertexData[i * 9 + v], ", ")
 	//     }
 	//     fmt.Println()
 	// }
 	// for i:=0; i<int(count); i++ {
 	//     fmt.Printf(" - index %d: %d %d %d %d %d %d\n", i,
-	//                 indexData[i * 6 + 0],
-	//                 indexData[i * 6 + 1],
-	//                 indexData[i * 6 + 2],
-	//                 indexData[i * 6 + 3],
-	//                 indexData[i * 6 + 4],
-	//                 indexData[i * 6 + 5])
+	//                 this.indexData[i * 6 + 0],
+	//                 this.indexData[i * 6 + 1],
+	//                 this.indexData[i * 6 + 2],
+	//                 this.indexData[i * 6 + 3],
+	//                 this.indexData[i * 6 + 4],
+	//                 this.indexData[i * 6 + 5])
 	// }
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
-	gl.BufferData(gl.ARRAY_BUFFER, int(vertexBufferSize*4), gl.Ptr(vertexData), gl.STREAM_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, int(vertexBufferSize*4), gl.Ptr(this.vertexData), gl.STREAM_DRAW)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer)
-	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, int(indexBufferSize*2), gl.Ptr(indexData), gl.STREAM_DRAW)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, int(indexBufferSize*2), gl.Ptr(this.indexData), gl.STREAM_DRAW)
 
 	gl.EnableVertexAttribArray(0)
 	gl.EnableVertexAttribArray(1) // texture coords
