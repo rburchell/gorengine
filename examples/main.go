@@ -5,9 +5,36 @@ import (
 	"github.com/sletta/gorengine/sg"
 	"log"
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 	"time"
 )
+
+type randStorage struct {
+	randBuf     []float32
+	currentRand int
+}
+
+func (this *randStorage) shuffle() {
+	if len(this.randBuf) == 0 {
+		// init on first acquire
+		for i := 0; i < 5000; i++ {
+			this.randBuf = append(this.randBuf, rand.Float32())
+		}
+	}
+	this.currentRand = rand.Intn(len(this.randBuf))
+}
+
+func (this *randStorage) acquire() float32 {
+	this.currentRand += 1
+	if this.currentRand == len(this.randBuf) {
+		this.currentRand = 0
+	}
+	return this.randBuf[this.currentRand]
+}
+
+var randCache randStorage
 
 func init() {
 	runtime.LockOSThread()
@@ -26,18 +53,19 @@ func dumpTree(node sg.Node, level int) {
 }
 
 func build() sg.Node {
+	randCache.shuffle()
 	const childCount = 10000
 	childs := make([]sg.Node, childCount)
 	for i := 0; i < childCount; i++ {
 		childs[i] = sg.RectangleNode{
-			X: rand.Float32() * 800,
-			Y: rand.Float32() * 410,
-			W: rand.Float32() * 200,
-			H: rand.Float32() * 200,
-			R: float32(rand.NormFloat64()),
-			G: float32(rand.NormFloat64()),
-			B: float32(rand.NormFloat64()),
-			A: float32(rand.NormFloat64()),
+			X: randCache.acquire() * 800,
+			Y: randCache.acquire() * 410,
+			W: randCache.acquire() * 200,
+			H: randCache.acquire() * 200,
+			R: randCache.acquire(),
+			G: randCache.acquire(),
+			B: randCache.acquire(),
+			A: randCache.acquire(),
 		}
 	}
 
@@ -75,6 +103,9 @@ func build() sg.Node {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	var renderer *sg.Renderer = sg.CreateRenderer()
 
