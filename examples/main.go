@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/sletta/gorengine/sg"
+	"log"
+	"math/rand"
 	"runtime"
+	"time"
 )
 
 func init() {
@@ -23,30 +26,34 @@ func dumpTree(node sg.Node, level int) {
 }
 
 func build() sg.Node {
+	const childCount = 10000
+	childs := make([]sg.Node, childCount)
+	for i := 0; i < childCount; i++ {
+		childs[i] = sg.RectangleNode{
+			X: rand.Float32() * 800,
+			Y: rand.Float32() * 410,
+			W: rand.Float32() * 200,
+			H: rand.Float32() * 200,
+			R: float32(rand.NormFloat64()),
+			G: float32(rand.NormFloat64()),
+			B: float32(rand.NormFloat64()),
+			A: float32(rand.NormFloat64()),
+		}
+	}
+
 	return sg.TransformNode{
 		Scale: 1,
 		Children: []sg.Node{
 			sg.RectangleNode{
-				X: 100,
-				Y: 100,
-				W: 200,
-				H: 100,
-				R: 0,
-				G: 0,
-				B: 1,
-				A: 1,
-				Children: []sg.Node{
-					sg.RectangleNode{
-						X: 110,
-						Y: 110,
-						W: 20,
-						H: 10,
-						R: 1,
-						G: 1,
-						B: 0,
-						A: 1,
-					},
-				},
+				X:        100,
+				Y:        100,
+				W:        200,
+				H:        100,
+				R:        1,
+				G:        0,
+				B:        1,
+				A:        1,
+				Children: childs,
 			},
 		},
 	}
@@ -69,13 +76,15 @@ func build() sg.Node {
 
 func main() {
 
-	var root sg.Node = build()
-	dumpTree(root, 0)
-
 	var renderer *sg.Renderer = sg.CreateRenderer()
 
 	if renderer != nil {
+		lastRender := time.Now()
 		for !renderer.ShouldClose() {
+			log.Printf("Time since last frame: %s", time.Since(lastRender))
+			lastRender = time.Now()
+			var root sg.Node = build()
+			//dumpTree(root, 0)
 			renderer.SetClearColor(1, 1, 1, 1)
 			renderer.Render(root)
 		}

@@ -82,57 +82,60 @@ func renderPrepass(node Node) uint32 {
 	return count
 }
 
-func renderBuildBuffers(node Node, vertices []float32, vertexOffset uint32, indices []uint16, indexOffset uint32) {
+func renderBuildBuffers(node Node, vertices []float32, vertexOffset *uint32, indices []uint16, indexOffset *uint32) {
 	if rn, ok := node.(RectangleNode); ok {
-		var firstIndex uint16 = uint16(vertexOffset / 9)
-		indices[indexOffset+0] = firstIndex + 0
-		indices[indexOffset+1] = firstIndex + 1
-		indices[indexOffset+2] = firstIndex + 2
-		indices[indexOffset+3] = firstIndex + 1
-		indices[indexOffset+4] = firstIndex + 3
-		indices[indexOffset+5] = firstIndex + 2
-		indexOffset += 6
+		vo := *vertexOffset
+		io := *indexOffset
 
-		vertices[vertexOffset+0+0] = rn.X
-		vertices[vertexOffset+0+1] = rn.Y
-		vertices[vertexOffset+0+2] = 0
-		vertices[vertexOffset+0+3] = 0
-		vertices[vertexOffset+0+4] = rn.R
-		vertices[vertexOffset+0+5] = rn.G
-		vertices[vertexOffset+0+6] = rn.B
-		vertices[vertexOffset+0+7] = rn.A
-		vertices[vertexOffset+0+8] = 0.0
+		var firstIndex uint16 = uint16(vo / 9)
+		indices[io+0] = firstIndex + 0
+		indices[io+1] = firstIndex + 1
+		indices[io+2] = firstIndex + 2
+		indices[io+3] = firstIndex + 1
+		indices[io+4] = firstIndex + 3
+		indices[io+5] = firstIndex + 2
+		*indexOffset += 6
 
-		vertices[vertexOffset+9+0] = rn.X + rn.W
-		vertices[vertexOffset+9+1] = rn.Y
-		vertices[vertexOffset+9+2] = 0
-		vertices[vertexOffset+9+3] = 0
-		vertices[vertexOffset+9+4] = rn.R
-		vertices[vertexOffset+9+5] = rn.G
-		vertices[vertexOffset+9+6] = rn.B
-		vertices[vertexOffset+9+7] = rn.A
-		vertices[vertexOffset+9+8] = 0.0
+		vertices[vo+0+0] = rn.X
+		vertices[vo+0+1] = rn.Y
+		vertices[vo+0+2] = 0
+		vertices[vo+0+3] = 0
+		vertices[vo+0+4] = rn.R
+		vertices[vo+0+5] = rn.G
+		vertices[vo+0+6] = rn.B
+		vertices[vo+0+7] = rn.A
+		vertices[vo+0+8] = 0.0
 
-		vertices[vertexOffset+18+0] = rn.X
-		vertices[vertexOffset+18+1] = rn.Y + rn.H
-		vertices[vertexOffset+18+2] = 0
-		vertices[vertexOffset+18+3] = 0
-		vertices[vertexOffset+18+4] = rn.R
-		vertices[vertexOffset+18+5] = rn.G
-		vertices[vertexOffset+18+6] = rn.B
-		vertices[vertexOffset+18+7] = rn.A
-		vertices[vertexOffset+18+8] = 0.0
+		vertices[vo+9+0] = rn.X + rn.W
+		vertices[vo+9+1] = rn.Y
+		vertices[vo+9+2] = 0
+		vertices[vo+9+3] = 0
+		vertices[vo+9+4] = rn.R
+		vertices[vo+9+5] = rn.G
+		vertices[vo+9+6] = rn.B
+		vertices[vo+9+7] = rn.A
+		vertices[vo+9+8] = 0.0
 
-		vertices[vertexOffset+27+0] = rn.X + rn.W
-		vertices[vertexOffset+27+1] = rn.Y + rn.H
-		vertices[vertexOffset+27+2] = 0
-		vertices[vertexOffset+27+3] = 0
-		vertices[vertexOffset+27+4] = rn.R
-		vertices[vertexOffset+27+5] = rn.G
-		vertices[vertexOffset+27+6] = rn.B
-		vertices[vertexOffset+27+7] = rn.A
-		vertices[vertexOffset+27+8] = 0.0
-		vertexOffset += 36
+		vertices[vo+18+0] = rn.X
+		vertices[vo+18+1] = rn.Y + rn.H
+		vertices[vo+18+2] = 0
+		vertices[vo+18+3] = 0
+		vertices[vo+18+4] = rn.R
+		vertices[vo+18+5] = rn.G
+		vertices[vo+18+6] = rn.B
+		vertices[vo+18+7] = rn.A
+		vertices[vo+18+8] = 0.0
+
+		vertices[vo+27+0] = rn.X + rn.W
+		vertices[vo+27+1] = rn.Y + rn.H
+		vertices[vo+27+2] = 0
+		vertices[vo+27+3] = 0
+		vertices[vo+27+4] = rn.R
+		vertices[vo+27+5] = rn.G
+		vertices[vo+27+6] = rn.B
+		vertices[vo+27+7] = rn.A
+		vertices[vo+27+8] = 0.0
+		*vertexOffset += 36
 	}
 	for _, child := range node.GetChildren() {
 		renderBuildBuffers(child, vertices, vertexOffset, indices, indexOffset)
@@ -151,7 +154,9 @@ func (this *Renderer) Render(root Node) {
 	vertexData := make([]float32, vertexBufferSize)
 	indexData := make([]uint16, indexBufferSize)
 
-	renderBuildBuffers(root, vertexData, 0, indexData, 0)
+	var indexOffset uint32
+	var vertexOffset uint32
+	renderBuildBuffers(root, vertexData, &vertexOffset, indexData, &indexOffset)
 
 	// fmt.Println("Render:")
 	// for i:=0; i<int(vertexCount); i++ {
