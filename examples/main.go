@@ -74,10 +74,13 @@ func main() {
 
     var renderer *sg.Renderer = sg.CreateRenderer()
 
-    for !renderer.ShouldClose() {
-        renderer.SetClearColor(1, 1, 1, 1)
-        renderer.Render(root)
+    if renderer != nil {
+        for !renderer.ShouldClose() {
+            renderer.SetClearColor(1, 1, 1, 1)
+            renderer.Render(root)
+        }
+        renderer.Destroy()
+    } else {
+        fmt.Println("Failed to create renderer... aborting main()");
     }
-
-    renderer.Destroy()
 }

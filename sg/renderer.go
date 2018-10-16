@@ -24,6 +24,9 @@ func CreateRenderer() *Renderer {
         return nil
     }
 
+    var windowWidth = 800;
+    var windowHeight = 600;
+
     glfw.WindowHint(glfw.Resizable, glfw.False)
     glfw.WindowHint(glfw.ContextVersionMajor, 2)
     glfw.WindowHint(glfw.ContextVersionMinor, 1)
@@ -31,7 +34,7 @@ func CreateRenderer() *Renderer {
     var renderer Renderer = Renderer{}
     var err error;
 
-    renderer.window, err = glfw.CreateWindow(800, 600, "gorengine", nil, nil)
+    renderer.window, err = glfw.CreateWindow(windowWidth, windowHeight, "gorengine", nil, nil)
     if err != nil {
         panic(err)
     }
@@ -47,6 +50,11 @@ func CreateRenderer() *Renderer {
         fmt.Println("Failed to create shader program", err)
         return nil
     }
+    gl.UseProgram(renderer.program)
+    var uniformWindowSize = gl.GetUniformLocation(renderer.program, gl.Str("WindowSize\x00"))
+    gl.Uniform2f(int32(uniformWindowSize), float32(windowWidth), float32(windowHeight));
+    gl.UseProgram(0)
+
     gl.GenBuffers(1, &renderer.vertexBuffer)
     gl.GenBuffers(1, &renderer.indexBuffer)
 
@@ -87,6 +95,7 @@ func renderBuildBuffers(node Node, vertices []float32, vertexOffset uint32, indi
         indices[indexOffset + 4] = firstIndex + 3
         indices[indexOffset + 5] = firstIndex + 2
         indexOffset += 6;
+
         vertices[vertexOffset +  0 + 0] = rn.X
         vertices[vertexOffset +  0 + 1] = rn.Y
         vertices[vertexOffset +  0 + 2] = 0
@@ -96,6 +105,7 @@ func renderBuildBuffers(node Node, vertices []float32, vertexOffset uint32, indi
         vertices[vertexOffset +  0 + 6] = rn.B
         vertices[vertexOffset +  0 + 7] = rn.A
         vertices[vertexOffset +  0 + 8] = 0.0
+
         vertices[vertexOffset +  9 + 0] = rn.X + rn.W
         vertices[vertexOffset +  9 + 1] = rn.Y
         vertices[vertexOffset +  9 + 2] = 0
@@ -105,6 +115,7 @@ func renderBuildBuffers(node Node, vertices []float32, vertexOffset uint32, indi
         vertices[vertexOffset +  9 + 6] = rn.B
         vertices[vertexOffset +  9 + 7] = rn.A
         vertices[vertexOffset +  9 + 8] = 0.0
+
         vertices[vertexOffset + 18 + 0] = rn.X
         vertices[vertexOffset + 18 + 1] = rn.Y + rn.H
         vertices[vertexOffset + 18 + 2] = 0
@@ -114,6 +125,7 @@ func renderBuildBuffers(node Node, vertices []float32, vertexOffset uint32, indi
         vertices[vertexOffset + 18 + 6] = rn.B
         vertices[vertexOffset + 18 + 7] = rn.A
         vertices[vertexOffset + 18 + 8] = 0.0
+
         vertices[vertexOffset + 27 + 0] = rn.X + rn.W
         vertices[vertexOffset + 27 + 1] = rn.Y + rn.H
         vertices[vertexOffset + 27 + 2] = 0
@@ -145,36 +157,48 @@ func (this *Renderer) Render(root Node) {
 
     renderBuildBuffers(root, vertexData, 0, indexData, 0)
 
-    for i:=0; i<int(vertexCount); i++ {
-        fmt.Print("vertex: ", i, ": ");
-        for v:=0; v<9; v++ {
-            fmt.Print(vertexData[i * 9 + v], ", ")
-        }
-        fmt.Println()
-    }
-    for i:=0; i<int(count); i++ {
-        fmt.Printf("index %d: %d %d %d %d %d %d\n", i,
-                    indexData[i * 6 + 0],
-                    indexData[i * 6 + 1],
-                    indexData[i * 6 + 2],
-                    indexData[i * 6 + 3],
-                    indexData[i * 6 + 4],
-                    indexData[i * 6 + 5])
-    }
+    // fmt.Println("Render:")
+    // for i:=0; i<int(vertexCount); i++ {
+    //     fmt.Print(" - vertex: ", i, ": ");
+    //     for v:=0; v<9; v++ {
+    //         fmt.Print(vertexData[i * 9 + v], ", ")
+    //     }
+    //     fmt.Println()
+    // }
+    // for i:=0; i<int(count); i++ {
+    //     fmt.Printf(" - index %d: %d %d %d %d %d %d\n", i,
+    //                 indexData[i * 6 + 0],
+    //                 indexData[i * 6 + 1],
+    //                 indexData[i * 6 + 2],
+    //                 indexData[i * 6 + 3],
+    //                 indexData[i * 6 + 4],
+    //                 indexData[i * 6 + 5])
+    // }
 
     gl.BindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     gl.BufferData(gl.ARRAY_BUFFER, int(vertexBufferSize * 4), gl.Ptr(vertexData), gl.STREAM_DRAW)
-    // gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    // gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, int(indexBufferSize * 2), gl.Ptr(indexData), gl.STREAM_DRAW);
+    gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+    gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, int(indexBufferSize * 2), gl.Ptr(indexData), gl.STREAM_DRAW);
 
     gl.EnableVertexAttribArray(0);
-    gl.VertexAttribPointer(0, 2, gl.FLOAT, false, 9 * 4 * 4, gl.PtrOffset(0));
+    gl.EnableVertexAttribArray(1); // texture coords
+    gl.EnableVertexAttribArray(2); // color
+    gl.EnableVertexAttribArray(3); // type..
+
+    gl.VertexAttribPointer(0, 2, gl.FLOAT, false, 9 * 4, gl.PtrOffset(0));
+    gl.VertexAttribPointer(1, 2, gl.FLOAT, false, 9 * 4, gl.PtrOffset(2 * 4));
+    gl.VertexAttribPointer(2, 4, gl.FLOAT, false, 9 * 4, gl.PtrOffset(4 * 4));
+    gl.VertexAttribPointer(3, 1, gl.FLOAT, false, 9 * 4, gl.PtrOffset(8 * 4));
 
     gl.UseProgram(this.program)
-    gl.DrawArrays(gl.TRIANGLES, 0, int32(vertexCount));
+    gl.DrawElements(gl.TRIANGLES, int32(indexCount), gl.UNSIGNED_SHORT, gl.PtrOffset(0));
 
     gl.UseProgram(0)
+
     gl.DisableVertexAttribArray(0);
+    gl.DisableVertexAttribArray(1);
+    gl.DisableVertexAttribArray(2);
+    gl.DisableVertexAttribArray(3);
 
     this.window.SwapBuffers()
     glfw.PollEvents()
@@ -242,23 +266,27 @@ func compileShader(source string, shaderType uint32) (uint32, error) {
     return shader, nil
 }
 
-var vertexSourceCode = `
+var vertexSourceCode =
+`
 attribute vec2 Vertex;
 attribute vec2 TexCoord;
 attribute vec4 Color;
 attribute float Type;
+
+uniform vec2 WindowSize;
 
 varying vec2 vTexCoord;
 varying vec4 vColor;
 varying float vType;
 
 void main() {
-    gl_Position = vec4(Vertex, 0, 1);
+    vec2 pos = Vertex / WindowSize * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
+    gl_Position = vec4(pos, 0, 1);
     vTexCoord = TexCoord;
     vColor = Color;
     vType = Type;
 }
-`
+` + "\x00"
 
 var fragmentSourceCode =
 `
@@ -268,11 +296,11 @@ varying float vType;
 
 void main() {
     if (vType == 0.0) {
-        gl_FragColor = vec4(1, 0, 0, 1);
+        gl_FragColor = vColor;
     } else {
-        gl_FragColor = vec4(1, 0, 1, 1);
+        gl_FragColor = vec4(1, 1, 0, 1);
     }
 }
-`
+` + "\x00"
 
 
