@@ -16,6 +16,8 @@ type Renderer struct {
 	indexData  []uint16
 
 	window *glfw.Window
+
+	RenderChan chan Node
 }
 
 func CreateRenderer() *Renderer {
@@ -33,6 +35,7 @@ func CreateRenderer() *Renderer {
 	glfw.WindowHint(glfw.ContextVersionMinor, 1)
 
 	var renderer Renderer = Renderer{}
+	renderer.RenderChan = make(chan Node)
 	var err error
 
 	renderer.window, err = glfw.CreateWindow(windowWidth, windowHeight, "gorengine", nil, nil)
@@ -73,100 +76,72 @@ func (this *Renderer) ShouldClose() bool {
 	return this.window.ShouldClose()
 }
 
-func renderPrepass(node Node) int {
-	var count int = 0
-	if _, ok := node.(RectangleNode); ok {
-		count = 1
+func (this *Renderer) renderBuildBuffers(nodeChan chan Node) int {
+	this.vertexData = this.vertexData[0:0]
+	this.indexData = this.indexData[0:0]
+
+	rectCount := 0
+
+	for node := range nodeChan {
+		if rn, ok := node.(RectangleNode); ok {
+			rectCount++
+			var firstIndex uint16 = uint16(len(this.vertexData) / 9)
+			this.indexData = append(this.indexData, firstIndex+0)
+			this.indexData = append(this.indexData, firstIndex+1)
+			this.indexData = append(this.indexData, firstIndex+2)
+			this.indexData = append(this.indexData, firstIndex+1)
+			this.indexData = append(this.indexData, firstIndex+3)
+			this.indexData = append(this.indexData, firstIndex+2)
+
+			this.vertexData = append(this.vertexData, rn.X)
+			this.vertexData = append(this.vertexData, rn.Y)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, rn.R)
+			this.vertexData = append(this.vertexData, rn.G)
+			this.vertexData = append(this.vertexData, rn.B)
+			this.vertexData = append(this.vertexData, rn.A)
+			this.vertexData = append(this.vertexData, 0.0)
+
+			this.vertexData = append(this.vertexData, rn.X+rn.W)
+			this.vertexData = append(this.vertexData, rn.Y)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, rn.R)
+			this.vertexData = append(this.vertexData, rn.G)
+			this.vertexData = append(this.vertexData, rn.B)
+			this.vertexData = append(this.vertexData, rn.A)
+			this.vertexData = append(this.vertexData, 0.0)
+
+			this.vertexData = append(this.vertexData, rn.X)
+			this.vertexData = append(this.vertexData, rn.Y+rn.H)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, rn.R)
+			this.vertexData = append(this.vertexData, rn.G)
+			this.vertexData = append(this.vertexData, rn.B)
+			this.vertexData = append(this.vertexData, rn.A)
+			this.vertexData = append(this.vertexData, 0.0)
+
+			this.vertexData = append(this.vertexData, rn.X+rn.W)
+			this.vertexData = append(this.vertexData, rn.Y+rn.H)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, 0)
+			this.vertexData = append(this.vertexData, rn.R)
+			this.vertexData = append(this.vertexData, rn.G)
+			this.vertexData = append(this.vertexData, rn.B)
+			this.vertexData = append(this.vertexData, rn.A)
+			this.vertexData = append(this.vertexData, 0.0)
+		}
 	}
 
-	for _, child := range node.GetChildren() {
-		count += renderPrepass(child)
-	}
-	return count
+	return rectCount
 }
 
-func renderBuildBuffers(node Node, vertices []float32, vertexOffset *uint32, indices []uint16, indexOffset *uint32) {
-	if rn, ok := node.(RectangleNode); ok {
-		vo := *vertexOffset
-		io := *indexOffset
-
-		var firstIndex uint16 = uint16(vo / 9)
-		indices[io+0] = firstIndex + 0
-		indices[io+1] = firstIndex + 1
-		indices[io+2] = firstIndex + 2
-		indices[io+3] = firstIndex + 1
-		indices[io+4] = firstIndex + 3
-		indices[io+5] = firstIndex + 2
-		*indexOffset += 6
-
-		vertices[vo+0+0] = rn.X
-		vertices[vo+0+1] = rn.Y
-		vertices[vo+0+2] = 0
-		vertices[vo+0+3] = 0
-		vertices[vo+0+4] = rn.R
-		vertices[vo+0+5] = rn.G
-		vertices[vo+0+6] = rn.B
-		vertices[vo+0+7] = rn.A
-		vertices[vo+0+8] = 0.0
-
-		vertices[vo+9+0] = rn.X + rn.W
-		vertices[vo+9+1] = rn.Y
-		vertices[vo+9+2] = 0
-		vertices[vo+9+3] = 0
-		vertices[vo+9+4] = rn.R
-		vertices[vo+9+5] = rn.G
-		vertices[vo+9+6] = rn.B
-		vertices[vo+9+7] = rn.A
-		vertices[vo+9+8] = 0.0
-
-		vertices[vo+18+0] = rn.X
-		vertices[vo+18+1] = rn.Y + rn.H
-		vertices[vo+18+2] = 0
-		vertices[vo+18+3] = 0
-		vertices[vo+18+4] = rn.R
-		vertices[vo+18+5] = rn.G
-		vertices[vo+18+6] = rn.B
-		vertices[vo+18+7] = rn.A
-		vertices[vo+18+8] = 0.0
-
-		vertices[vo+27+0] = rn.X + rn.W
-		vertices[vo+27+1] = rn.Y + rn.H
-		vertices[vo+27+2] = 0
-		vertices[vo+27+3] = 0
-		vertices[vo+27+4] = rn.R
-		vertices[vo+27+5] = rn.G
-		vertices[vo+27+6] = rn.B
-		vertices[vo+27+7] = rn.A
-		vertices[vo+27+8] = 0.0
-		*vertexOffset += 36
-	}
-	for _, child := range node.GetChildren() {
-		renderBuildBuffers(child, vertices, vertexOffset, indices, indexOffset)
-	}
-}
-
-func (this *Renderer) Render(root Node) {
+func (this *Renderer) Render() {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 
-	count := renderPrepass(root)
-	vertexCount := count * 4
-	indexCount := count * 6
-	vertexBufferSize := vertexCount * 9
-	indexBufferSize := indexCount
-
-	if vertexBufferSize > len(this.vertexData) {
-		this.vertexData = make([]float32, vertexBufferSize)
-	}
-	if indexBufferSize > len(this.indexData) {
-		this.indexData = make([]uint16, indexBufferSize)
-	}
-
-	this.vertexData = this.vertexData[:]
-	this.indexData = this.indexData[:]
-
-	var indexOffset uint32
-	var vertexOffset uint32
-	renderBuildBuffers(root, this.vertexData, &vertexOffset, this.indexData, &indexOffset)
+	count := this.renderBuildBuffers(this.RenderChan)
 
 	// fmt.Println("Render:")
 	// for i:=0; i<int(vertexCount); i++ {
@@ -186,6 +161,11 @@ func (this *Renderer) Render(root Node) {
 	//                 this.indexData[i * 6 + 5])
 	// }
 
+	vertexCount := count * 4
+	indexCount := count * 6
+	vertexBufferSize := vertexCount * 9
+	indexBufferSize := indexCount
+
 	gl.BindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, int(vertexBufferSize*4), gl.Ptr(this.vertexData), gl.STREAM_DRAW)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer)
@@ -202,7 +182,7 @@ func (this *Renderer) Render(root Node) {
 	gl.VertexAttribPointer(3, 1, gl.FLOAT, false, 9*4, gl.PtrOffset(8*4))
 
 	gl.UseProgram(this.program)
-	gl.DrawElements(gl.TRIANGLES, int32(indexCount), gl.UNSIGNED_SHORT, gl.PtrOffset(0))
+	gl.DrawElements(gl.TRIANGLES, int32(indexBufferSize), gl.UNSIGNED_SHORT, gl.PtrOffset(0))
 
 	gl.UseProgram(0)
 
@@ -213,6 +193,8 @@ func (this *Renderer) Render(root Node) {
 
 	this.window.SwapBuffers()
 	glfw.PollEvents()
+
+	this.RenderChan = make(chan Node)
 }
 
 func (this *Renderer) SetClearColor(r, g, b, a float32) {

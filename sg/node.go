@@ -5,7 +5,7 @@ import (
 )
 
 type Node interface {
-	GetChildren() []Node
+	nodeyThing()
 }
 
 type TransformNode struct {
@@ -13,8 +13,6 @@ type TransformNode struct {
 	Dy       float32
 	Scale    float32
 	Rotation float32
-
-	Children []Node
 }
 
 type RectangleNode struct {
@@ -27,8 +25,6 @@ type RectangleNode struct {
 	G float32
 	B float32
 	A float32
-
-	Children []Node
 }
 
 type TextureNode struct {
@@ -43,8 +39,6 @@ type TextureNode struct {
 	TH float32
 
 	Texture uint
-
-	Children []Node
 }
 
 func (this RectangleNode) String() string {
@@ -73,8 +67,7 @@ func (this *RectangleNode) SetGeometry(x, y, w, h float32) {
 	this.H = h
 }
 
-func (this RectangleNode) GetChildren() []Node {
-	return this.Children
+func (this RectangleNode) nodeyThing() {
 }
 
 func (this TransformNode) String() string {
@@ -83,6 +76,5 @@ func (this TransformNode) String() string {
 		this.Scale, this.Rotation)
 }
 
-func (this TransformNode) GetChildren() []Node {
-	return this.Children
+func (this TransformNode) nodeyThing() {
 }

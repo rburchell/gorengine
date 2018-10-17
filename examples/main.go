@@ -2,44 +2,23 @@ package main
 
 import (
 	"fmt"
+	"github.com/MichaelTJones/pcg"
 	"github.com/sletta/gorengine/sg"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
+	"sync"
 	"time"
 )
-
-type randStorage struct {
-	randBuf     []float32
-	currentRand int
-}
-
-func (this *randStorage) shuffle() {
-	if len(this.randBuf) == 0 {
-		// init on first acquire
-		for i := 0; i < 5000; i++ {
-			this.randBuf = append(this.randBuf, rand.Float32())
-		}
-	}
-	this.currentRand = rand.Intn(len(this.randBuf))
-}
-
-func (this *randStorage) acquire() float32 {
-	this.currentRand += 1
-	if this.currentRand == len(this.randBuf) {
-		this.currentRand = 0
-	}
-	return this.randBuf[this.currentRand]
-}
-
-var randCache randStorage
 
 func init() {
 	runtime.LockOSThread()
 }
 
+/*
 func dumpTree(node sg.Node, level int) {
 
 	for i := 0; i < level; i++ {
@@ -51,40 +30,55 @@ func dumpTree(node sg.Node, level int) {
 		dumpTree(child, level+1)
 	}
 }
+*/
 
-func build() sg.Node {
-	randCache.shuffle()
-	const childCount = 10000
-	childs := make([]sg.Node, childCount)
-	for i := 0; i < childCount; i++ {
-		childs[i] = sg.RectangleNode{
-			X: randCache.acquire() * 800,
-			Y: randCache.acquire() * 410,
-			W: randCache.acquire() * 200,
-			H: randCache.acquire() * 200,
-			R: randCache.acquire(),
-			G: randCache.acquire(),
-			B: randCache.acquire(),
-			A: randCache.acquire(),
-		}
-	}
-
-	return sg.TransformNode{
+func build(nodeChan chan sg.Node) {
+	nodeChan <- sg.TransformNode{
 		Scale: 1,
-		Children: []sg.Node{
-			sg.RectangleNode{
-				X:        100,
-				Y:        100,
-				W:        200,
-				H:        100,
-				R:        1,
-				G:        0,
-				B:        1,
-				A:        1,
-				Children: childs,
-			},
-		},
 	}
+
+	nodeChan <- sg.RectangleNode{
+		X: 100,
+		Y: 100,
+		W: 200,
+		H: 100,
+		R: 1,
+		G: 0,
+		B: 1,
+		A: 1,
+	}
+
+	var wg sync.WaitGroup
+	const childSenders = 10
+	const childBatch = 500
+	const childCount = childSenders * childBatch
+	wg.Add(childSenders)
+
+	for i := 0; i < childSenders; i++ {
+		go func() {
+			var pcgrand = pcg.NewPCG32()
+			pcgrand.Seed(uint64(rand.Int63()), uint64(rand.Int63()))
+
+			for i := 0; i < childBatch; i++ {
+				nodeChan <- sg.RectangleNode{
+					X: float32(float64(pcgrand.Random())/float64(math.MaxUint32)) * 800,
+					Y: float32(float64(pcgrand.Random())/float64(math.MaxUint32)) * 410,
+					W: float32(float64(pcgrand.Random())/float64(math.MaxUint32)) * 200,
+					H: float32(float64(pcgrand.Random())/float64(math.MaxUint32)) * 200,
+					R: float32(float64(pcgrand.Random()) / float64(math.MaxUint32)),
+					G: float32(float64(pcgrand.Random()) / float64(math.MaxUint32)),
+					B: float32(float64(pcgrand.Random()) / float64(math.MaxUint32)),
+					A: float32(float64(pcgrand.Random()) / float64(math.MaxUint32)),
+				}
+			}
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	close(nodeChan)
+
 	// var root sg.TransformNode = sg.TransformNode{ Scale: 1 }
 	// var rectangle sg.RectangleNode = sg.RectangleNode{}
 	// rectangle.SetGeometry(100, 200, 500, 300)
@@ -114,10 +108,10 @@ func main() {
 		for !renderer.ShouldClose() {
 			log.Printf("Time since last frame: %s", time.Since(lastRender))
 			lastRender = time.Now()
-			var root sg.Node = build()
+			go build(renderer.RenderChan)
 			//dumpTree(root, 0)
 			renderer.SetClearColor(1, 1, 1, 1)
-			renderer.Render(root)
+			renderer.Render()
 		}
 		renderer.Destroy()
 	} else {
